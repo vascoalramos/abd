@@ -7,7 +7,7 @@
 
 2. Create a folder to hold your database data (a volume link): 
     ```bash
-    mkdir /path/../data
+    mkdir path/../data
     ```
 
 2. Execute docker container:
@@ -20,7 +20,18 @@
     docker exec -it postgres psql -U <user_name> <db_name>
     ```
 
-4. To start your container, if already created:
+- To start your container, if already created:
     ```bash
-    docker start -i postgres
+    docker start -ai postgres
+    ```
+
+- To check the database server status:
+    ```bash
+    docker exec postgres pg_ctl status
+    ```
+
+- To edit your PostgreSQL server configuration:
+    ```bash
+    vim /path/.../data/posgtgres.conf
+    docker exec postgres pg_ctl reload
     ```
