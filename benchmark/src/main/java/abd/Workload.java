@@ -10,9 +10,9 @@ public class Workload {
         Statement s = c.createStatement();
 
         // create tables and insert values
-        s.executeUpdate("create table client (int id, name varchar, address varchar, data varchar)");
-        s.executeUpdate("create table product (int id, description varchar, data varchar)");
-        s.executeUpdate("create table invoice (int id, productId varchar, productId varchar, data varchar)");
+        s.executeUpdate("create table client (id int, name varchar, address varchar, data varchar)");
+        s.executeUpdate("create table product (id int, description varchar, data varchar)");
+        s.executeUpdate("create table invoice (id int, productId varchar, clientId varchar, data varchar)");
 
         s.close();
     }
