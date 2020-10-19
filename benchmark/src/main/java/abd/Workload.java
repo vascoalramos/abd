@@ -68,6 +68,8 @@ public class Workload {
 		}
 		
 		s.close();
+		
+		System.out.println();
 	}
 	
 	private static void sell(Random rand, Statement s) throws SQLException {
@@ -92,8 +94,6 @@ public class Workload {
 			System.out.println("  -> Name: " + rs.getString("description"));
 		}
 		*/
-		
-		System.out.println();
 	}
 	
 	private static void top10(Statement s) throws SQLException {
@@ -107,8 +107,6 @@ public class Workload {
 			System.out.println("  -> ID: " + rs.getString("productid"));
 		}
 		*/
-		
-		System.out.println();
 	}
 	
 	private static int generateId(Random rand) {
