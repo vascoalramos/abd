@@ -10,4 +10,4 @@ echo "\n\nPopulate\n"
 java -jar target/benchmark-1.0-SNAPSHOT.jar -d ${DB_URL} -U ${DB_USER} -P ${DB_PWD} -p
 
 echo "\n\nRun Benchmark\n"
-java -jar target/benchmark-1.0-SNAPSHOT.jar -d ${DB_URL} -U ${DB_USER} -P ${DB_PWD} -c 1 -x
+java -jar target/benchmark-1.0-SNAPSHOT.jar -d ${DB_URL} -U ${DB_USER} -P ${DB_PWD} -c 16 -R 120 -x

@@ -86,11 +86,19 @@ public class Workload {
 	private static void account(Random rand, Statement s) throws Exception {
 		int clientId = generateId(rand);
 		
-		s.executeQuery("select description from product inner join (select distinct productId from invoice where clientId=" + clientId + ") as invoice on productId=product.id");
+		ResultSet rs = s.executeQuery("select description from product inner join (select distinct productId from invoice where clientId=" + clientId + ") as invoice on productId=product.id");
+		
+		while (rs.next()) {
+			;
+		}
 	}
 	
 	private static void top10(Statement s) throws Exception {
-		s.executeQuery("select productId from invoice group by productId order by count(productId) desc limit 10;");
+		ResultSet rs = s.executeQuery("select productId from invoice group by productId order by count(productId) desc limit 10;");
+		
+		while (rs.next()) {
+			;
+		}
 	}
 	
 	private static int generateId(Random rand) {
