@@ -1,5 +1,4 @@
-# abd
-Database Administration
+# Database Administration
 
 ## Authors
 * **Vasco Ramos:** [vascoalramos](https://vascoalramos.me)
