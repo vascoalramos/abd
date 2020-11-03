@@ -27,6 +27,12 @@ public class Workload {
 		s.executeUpdate("drop table if exists product cascade");
 
 		s.executeUpdate("drop table if exists invoice cascade");
+
+		s.executeUpdate("drop table if exists mv_product_sales cascade");
+
+		s.executeUpdate("drop trigger if exists update_product_sales on abd.invoice");
+
+		s.executeUpdate("drop function if exists update_product_sales");
 		
 		// create tables and insert values
 		s.executeUpdate("create table client (id serial primary key, name varchar, address varchar, data varchar)");
@@ -38,30 +44,6 @@ public class Workload {
 		// create indexes to account operation
 		s.executeUpdate("create index idx_invoice_client_id on invoice(client_id)");
 		s.executeUpdate("create index idx_invoice_product_id on invoice(product_id)");
-
-		// create materialized view to top10 operation
-		s.executeUpdate("select product_id, count(product_id) as total_sales into mv_product_sales from invoice group by product_id");
-
-		s.executeUpdate("create function update_product_sales() returns trigger as '\n" +
-				"	BEGIN" +
-				"		if exists (select from mv_product_sales where product_id=new.product_id) then" +
-				"			update mv_product_sales set total_sales = total_sales + 1 where product_id = new.product_id;"+
-				"		else" +
-				" 			insert into mv_product_sales (product_id, total_sales) values (new.product_id, 1);" +
-				"		end if;" +
-				"		return new;" +
-				"	END" +
-				"' language 'plpgsql'"
-		);
-
-		s.executeUpdate("create trigger update_product_sales" +
-				"	after insert on invoice" +
-				"	for each row execute procedure update_product_sales();"
-		);
-
-		// create materialized view to top10 operation
-		s.executeUpdate("create index idx_product_sales_product_id on mv_product_sales(product_id)");
-
 		
 		// insert clients
 		for (int i = 0; i < MAX; i++) {
@@ -72,7 +54,24 @@ public class Workload {
 		for (int i = 0; i < MAX; i++) {
 			s.executeUpdate("insert into product (description, data) values ('" + DESCRIPTION + "', '" + DATA + "')");
 		}
-		
+
+		// create materialized view to top10 operation
+		s.executeUpdate("select id as product_id, 0 as total_sales into mv_product_sales from product group by product_id");
+
+		s.executeUpdate("create function update_product_sales() returns trigger as '" +
+				"	BEGIN" +
+				"		update mv_product_sales set total_sales = total_sales + 1 where product_id = new.product_id;"+
+				"		return new;" +
+				"	END" +
+				"' language 'plpgsql'"
+		);
+
+		s.executeUpdate("create trigger update_product_sales" +
+				"	after insert on invoice" +
+				"	for each row execute procedure update_product_sales();"
+		);
+
+
 		s.close();
 	}
 	
