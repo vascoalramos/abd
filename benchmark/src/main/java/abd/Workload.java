@@ -40,7 +40,7 @@ public class Workload {
 		s.executeUpdate("create index idx_invoice_product_id on invoice(product_id)");
 
 		// create materialized view to top10 operation
-		s.executeUpdate("select product_id, count(product_id) as total_sales into mv_product_sales from product group by product_id");
+		s.executeUpdate("select product_id, count(product_id) as total_sales into mv_product_sales from invoice group by product_id");
 
 		s.executeUpdate("create function update_product_sales() returns trigger as '\n" +
 				"	BEGIN" +
