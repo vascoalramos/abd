@@ -29,11 +29,16 @@ public class Workload {
 		s.executeUpdate("drop table if exists Invoice cascade");
 		
 		// create tables and insert values
-		s.executeUpdate("create table client (id int, name varchar, address varchar, data varchar)");
+		s.executeUpdate("create table client (id int primary key, name varchar, address varchar, data varchar)");
 		
-		s.executeUpdate("create table product (id int, description varchar, data varchar)");
+		s.executeUpdate("create table product (id int primary key, description varchar, data varchar)");
 		
-		s.executeUpdate("create table invoice (id int, productId int, clientId int, data varchar)");
+		s.executeUpdate("create table invoice (id serial primary key, productId int, clientId int, data varchar)");
+
+		// create indexes
+		s.executeUpdate("create index idx_invoice_client_id on invoice(clientId)");
+		s.executeUpdate("create index idx_invoice_product_id on invoice(productId)");
+		s.executeUpdate("cluster invoice using idx_invoice_product_id");
 		
 		// insert clients
 		for (int i = 0; i < MAX; i++) {
@@ -78,15 +83,13 @@ public class Workload {
 		ResultSet rs = s.executeQuery("select count(id) as total from invoice;");
 		rs.next();
 		
-		int id = rs.getInt("total") + 1;
-		
-		s.executeUpdate("insert into invoice (id, productId, clientId, data) values ('" + id + "', '" + clientId + "', '" + productId + "', '" + DATA + "')");
+		s.executeUpdate("insert into invoice (productId, clientId, data) values ('" + clientId + "', '" + productId + "', '" + DATA + "')");
 	}
 	
 	private static void account(Random rand, Statement s) throws Exception {
 		int clientId = generateId(rand);
-		
-		ResultSet rs = s.executeQuery("select description from product inner join (select distinct productId from invoice where clientId=" + clientId + ") as invoice on productId=product.id");
+
+		ResultSet rs = s.executeQuery("select description from invoice inner join product on productId=product.id where clientId=" + clientId);
 		
 		while (rs.next()) {
 			;
