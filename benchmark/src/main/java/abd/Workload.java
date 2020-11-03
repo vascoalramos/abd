@@ -22,32 +22,55 @@ public class Workload {
 		Statement s = c.createStatement();
 		
 		// drop tables, if they exist
-		s.executeUpdate("drop table if exists client cascade;");
+		s.executeUpdate("drop table if exists client cascade");
 		
 		s.executeUpdate("drop table if exists product cascade");
-		
-		s.executeUpdate("drop table if exists Invoice cascade");
+
+		s.executeUpdate("drop table if exists invoice cascade");
 		
 		// create tables and insert values
-		s.executeUpdate("create table client (id int primary key, name varchar, address varchar, data varchar)");
+		s.executeUpdate("create table client (id serial primary key, name varchar, address varchar, data varchar)");
 		
-		s.executeUpdate("create table product (id int primary key, description varchar, data varchar)");
-		
-		s.executeUpdate("create table invoice (id serial primary key, productId int, clientId int, data varchar)");
+		s.executeUpdate("create table product (id serial primary key, description varchar, data varchar)");
 
-		// create indexes
-		s.executeUpdate("create index idx_invoice_client_id on invoice(clientId)");
-		s.executeUpdate("create index idx_invoice_product_id on invoice(productId)");
-		s.executeUpdate("cluster invoice using idx_invoice_product_id");
+		s.executeUpdate("create table invoice (id serial primary key, product_id int, client_id int, data varchar)");
+
+		// create indexes to account operation
+		s.executeUpdate("create index idx_invoice_client_id on invoice(client_id)");
+		s.executeUpdate("create index idx_invoice_product_id on invoice(product_id)");
+
+		// create materialized view to top10 operation
+		s.executeUpdate("select product_id, count(product_id) as total_sales into mv_product_sales from product group by product_id");
+
+		s.executeUpdate("create function update_product_sales() returns trigger as '\n" +
+				"	BEGIN" +
+				"		if exists (select from mv_product_sales where product_id=new.product_id) then" +
+				"			update mv_product_sales set total_sales = total_sales + 1 where product_id = new.product_id;"+
+				"		else" +
+				" 			insert into mv_product_sales (product_id, total_sales) values (new.product_id, 1);" +
+				"		end if;" +
+				"		return new;" +
+				"	END" +
+				"' language 'plpgsql'"
+		);
+
+		s.executeUpdate("create trigger update_product_sales" +
+				"	after insert on invoice" +
+				"	for each row execute procedure update_product_sales();"
+		);
+
+		// create materialized view to top10 operation
+		s.executeUpdate("create index idx_product_sales_product_id on mv_product_sales(product_id)");
+
 		
 		// insert clients
 		for (int i = 0; i < MAX; i++) {
-			s.executeUpdate("insert into client (id, name, address, data) values ('" + i + "', '" + NAME + "', '" + ADDRESS + "', '" + DATA + "')");
+			s.executeUpdate("insert into client (name, address, data) values ('" + NAME + "', '" + ADDRESS + "', '" + DATA + "')");
 		}
 		
 		// insert products
 		for (int i = 0; i < MAX; i++) {
-			s.executeUpdate("insert into product (id, description, data) values ('" + i + "', '" + DESCRIPTION + "', '" + DATA + "')");
+			s.executeUpdate("insert into product (description, data) values ('" + DESCRIPTION + "', '" + DATA + "')");
 		}
 		
 		s.close();
@@ -83,13 +106,13 @@ public class Workload {
 		ResultSet rs = s.executeQuery("select count(id) as total from invoice;");
 		rs.next();
 		
-		s.executeUpdate("insert into invoice (productId, clientId, data) values ('" + clientId + "', '" + productId + "', '" + DATA + "')");
+		s.executeUpdate("insert into invoice (product_id, client_id, data) values ('" + clientId + "', '" + productId + "', '" + DATA + "')");
 	}
 	
 	private static void account(Random rand, Statement s) throws Exception {
 		int clientId = generateId(rand);
 
-		ResultSet rs = s.executeQuery("select description from invoice inner join product on productId=product.id where clientId=" + clientId);
+		ResultSet rs = s.executeQuery("select description from invoice inner join product on product_id=product.id where client_id=" + clientId);
 		
 		while (rs.next()) {
 			;
@@ -97,7 +120,7 @@ public class Workload {
 	}
 	
 	private static void top10(Statement s) throws Exception {
-		ResultSet rs = s.executeQuery("select productId from invoice group by productId order by count(productId) desc limit 10;");
+		ResultSet rs = s.executeQuery("select product_id from mv_product_sales order by total_sales desc limit 10;");
 		
 		while (rs.next()) {
 			;
