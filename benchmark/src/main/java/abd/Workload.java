@@ -2,10 +2,7 @@ package abd;
 
 import org.apache.commons.lang3.RandomStringUtils;
 
-import java.sql.Connection;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
+import java.sql.*;
 import java.util.Random;
 
 public class Workload {
@@ -18,8 +15,11 @@ public class Workload {
 	private static final String DATA = RandomStringUtils.randomAlphanumeric(1000, 1500);
 	private static final String DESCRIPTION = RandomStringUtils.randomAlphabetic(15, 100);
 	
+	// prepared statements
+	
 	public static void populate(Random rand, Connection c) throws SQLException {
 		Statement s = c.createStatement();
+		
 		
 		// drop tables, if they exist
 		s.executeUpdate("drop table if exists client cascade");
@@ -43,13 +43,20 @@ public class Workload {
 		s.executeUpdate("create index idx_invoice_product_id on invoice(product_id)");
 		
 		// insert clients
+		PreparedStatement insertClientSt = c.prepareStatement("insert into client (name, address, data) values (?, ?, ?)");
 		for (int i = 0; i < MAX; i++) {
-			s.executeUpdate("insert into client (name, address, data) values ('" + NAME + "', '" + ADDRESS + "', '" + DATA + "')");
+			insertClientSt.setString(1, NAME);
+			insertClientSt.setString(2, ADDRESS);
+			insertClientSt.setString(3, DATA);
+			insertClientSt.executeUpdate();
 		}
 		
 		// insert products
+		PreparedStatement insertProductSt = c.prepareStatement("insert into product (description, data) values (?, ?)");
 		for (int i = 0; i < MAX; i++) {
-			s.executeUpdate("insert into product (description, data) values ('" + DESCRIPTION + "', '" + DATA + "')");
+			insertProductSt.setString(1, DESCRIPTION);
+			insertProductSt.setString(2, DATA);
+			insertProductSt.executeUpdate();
 		}
 		
 		// create materialized view (plus insert trigger and function) to top10 operation
@@ -79,7 +86,7 @@ public class Workload {
 		
 		switch (opt) {
 			case 0:
-				sell(rand, s);
+				sell(rand, c);
 				break;
 			case 1:
 				account(rand, s);
@@ -94,14 +101,15 @@ public class Workload {
 		s.close();
 	}
 	
-	private static void sell(Random rand, Statement s) throws Exception {
+	private static void sell(Random rand, Connection c) throws Exception {
 		int clientId = generateId(rand);
 		int productId = generateId(rand);
 		
-		ResultSet rs = s.executeQuery("select count(id) as total from invoice;");
-		rs.next();
-		
-		s.executeUpdate("insert into invoice (product_id, client_id, data) values ('" + clientId + "', '" + productId + "', '" + DATA + "')");
+		PreparedStatement sellPrepSt = c.prepareStatement("insert into invoice (product_id, client_id, data) values (?, ?, ?)");
+		sellPrepSt.setInt(1, productId);
+		sellPrepSt.setInt(2, clientId);
+		sellPrepSt.setString(3, DATA);
+		sellPrepSt.executeUpdate();
 	}
 	
 	private static void account(Random rand, Statement s) throws Exception {
