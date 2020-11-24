@@ -11,12 +11,24 @@ import java.util.Random;
 public class Workload {
 	private static final int N = 10;
 	private static final int MAX = (int) Math.pow(2, N);
-	
 	// fields
 	private static final String NAME = RandomStringUtils.randomAlphabetic(10, 15);
 	private static final String ADDRESS = RandomStringUtils.randomAlphabetic(15, 25);
 	private static final String DATA = RandomStringUtils.randomAlphanumeric(1000, 1500);
 	private static final String DESCRIPTION = RandomStringUtils.randomAlphabetic(15, 100);
+	private final Random rand;
+	private final Connection c;
+	
+	public Workload(Random rand, Connection c) throws Exception {
+		this.rand = rand;
+		this.c = c;
+		
+		//---- DEMO WORKLOAD ----
+		// initialize connection, e.g. c.setAutoCommit(false);
+		// or create prepared statements...
+		//-----------------------
+		this.c.setAutoCommit(false);
+	}
 	
 	public static void populate(Random rand, Connection c) throws Exception {
 		Statement s = c.createStatement();
@@ -78,37 +90,59 @@ public class Workload {
 		s.close();
 	}
 	
-	private final Random rand;
-	private final Connection c;
-	
-	public Workload(Random rand, Connection c) throws Exception {
-		this.rand = rand;
-		this.c = c;
-		
-		//---- DEMO WORKLOAD ----
-		// initialize connection, e.g. c.setAutoCommit(false);
-		// or create prepared statements...
-		//-----------------------
-		this.c.setAutoCommit(false);
-	}
-	
 	public void transaction() throws Exception {
 		Statement s = c.createStatement();
 		
-		//---- DEMO WORKLOAD ----
-		// replace with your workload!
-		switch(rand.nextInt(2)) {
+		// execute random operation
+		int opt = rand.nextInt(3);
+		
+		switch (opt) {
 			case 0:
-				s.executeUpdate("update demo set c=c+1 where a=1");
+				sell();
 				break;
 			case 1:
-				ResultSet rs = s.executeQuery("select * from demo");
-				while(rs.next())
-					;
+				account(s);
 				break;
+			case 2:
+				top10(s);
+				break;
+			default:
+				System.out.println("Oops.... :)");
 		}
-		//-----------------------
 		
+		c.commit();
 		s.close();
 	}
+	
+	private void sell() throws Exception {
+		int clientId = generateId();
+		int productId = generateId();
+		
+		PreparedStatement sellPrepSt = c.prepareStatement("insert into invoice (product_id, client_id, data) values (?, ?, ?)");
+		sellPrepSt.setInt(1, productId);
+		sellPrepSt.setInt(2, clientId);
+		sellPrepSt.setString(3, DATA);
+		sellPrepSt.executeUpdate();
+	}
+	
+	private void account(Statement s) throws Exception {
+		int clientId = generateId();
+		
+		ResultSet rs = s.executeQuery("select description from invoice inner join product on product_id=product.id where client_id=" + clientId);
+		
+		while (rs.next()) {
+		}
+	}
+	
+	private void top10(Statement s) throws Exception {
+		ResultSet rs = s.executeQuery("select product_id from mv_product_sales order by total_sales desc limit 10;");
+		
+		while (rs.next()) {
+		}
+	}
+	
+	private int generateId() {
+		return rand.nextInt(MAX) | rand.nextInt(MAX);
+	}
+	
 }
