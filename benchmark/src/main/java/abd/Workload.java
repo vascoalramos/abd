@@ -107,10 +107,10 @@ public class Workload {
 			insertProductSt.executeUpdate();
 		}
 		
+		/*
 		// create materialized view (plus insert trigger and function) to top10 operation
 		s.executeUpdate("SELECT id AS product_id, 0 AS total_sales INTO mv_product_sales FROM product GROUP BY product_id");
 		
-		/*
 		s.executeUpdate("CREATE FUNCTION update_product_sales() RETURNS TRIGGER AS '" +
 				"	BEGIN" +
 				"		update mv_product_sales set total_sales = total_sales + 1 where product_id = new.product_id;" +
@@ -176,7 +176,7 @@ public class Workload {
 			if (keys.next()) {
 				invoiceId = keys.getInt(1);
 				
-				for (int i = 0; i < (rand.nextInt(10) + 1); i++) {
+				for (int i = 0; i < (rand.nextInt(5) + 1); i++) {
 					productId = generateId();
 					
 					// insert lines to the invoice
@@ -208,7 +208,10 @@ public class Workload {
 	}
 	
 	private void top10(Statement s) throws Exception {
-		ResultSet rs = s.executeQuery("select product_id from mv_product_sales order by total_sales desc limit 10;");
+		ResultSet rs = s.executeQuery("SELECT product_id " +
+				"FROM invoice_line " +
+				"GROUP BY product_id " +
+				"ORDER BY sum(product_id) DESC LIMIT 10;");
 		
 		while (rs.next()) {
 		}
