@@ -11,11 +11,13 @@ import java.util.Random;
 public class Workload {
 	private static final int N = 10;
 	private static final int MAX = (int) Math.pow(2, N);
+	
 	// fields
 	private static final String NAME = RandomStringUtils.randomAlphabetic(10, 15);
 	private static final String ADDRESS = RandomStringUtils.randomAlphabetic(15, 25);
 	private static final String DATA = RandomStringUtils.randomAlphanumeric(1000, 1500);
 	private static final String DESCRIPTION = RandomStringUtils.randomAlphabetic(15, 100);
+	
 	private final Random rand;
 	private final Connection c;
 	
@@ -98,13 +100,13 @@ public class Workload {
 		
 		switch (opt) {
 			case 0:
-				sell();
+				sell(s);
 				break;
 			case 1:
-				account(s);
+				// account(s);
 				break;
 			case 2:
-				top10(s);
+				// top10(s);
 				break;
 			default:
 				System.out.println("Oops.... :)");
@@ -114,15 +116,32 @@ public class Workload {
 		s.close();
 	}
 	
-	private void sell() throws Exception {
+	private void sell(Statement s) throws Exception {
 		int clientId = generateId();
-		int productId = generateId();
+		int invoiceId;
+		int productId;
 		
-		PreparedStatement sellPrepSt = c.prepareStatement("insert into invoice (product_id, client_id, data) values (?, ?, ?)");
-		sellPrepSt.setInt(1, productId);
-		sellPrepSt.setInt(2, clientId);
-		sellPrepSt.setString(3, DATA);
-		sellPrepSt.executeUpdate();
+		String sql = "insert into invoice (client_id, data) values (" + clientId + ", '" + DATA + "')";
+		int affectedRows = s.executeUpdate(sql, Statement.RETURN_GENERATED_KEYS);
+		
+		if (affectedRows > 0) {
+			ResultSet keys = s.getGeneratedKeys();
+			
+			if (keys.next()) {
+				invoiceId = keys.getInt(1);
+				
+				for (int i = 0; i < (rand.nextInt(10) + 1); i++) {
+					productId = generateId();
+					
+					// insert lines to the invoice
+					s.executeUpdate("insert into invoice_line (invoice_id, product_id) values (" + invoiceId + ", " + productId + ")");
+					
+					// update stock value
+					s.executeUpdate("update product set stock = stock - 1 where id=" + productId);
+				}
+			}
+			
+		}
 	}
 	
 	private void account(Statement s) throws Exception {
