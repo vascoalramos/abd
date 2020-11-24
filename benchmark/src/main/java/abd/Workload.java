@@ -10,15 +10,38 @@ public class Workload {
 		Statement s = c.createStatement();
 		
 		// drop tables, if they exist
-		s.executeUpdate("drop table if exists client cascade");
-		s.executeUpdate("drop table if exists product cascade");
-		s.executeUpdate("drop table if exists invoice cascade");
-		s.executeUpdate("drop table if exists mv_product_sales cascade");
+		s.executeUpdate("DROP TABLE IF EXISTS client CASCADE");
+		s.executeUpdate("DROP TABLE IF EXISTS product CASCADE");
+		s.executeUpdate("DROP TABLE IF EXISTS invoice CASCADE");
+		s.executeUpdate("DROP TABLE IF EXISTS invoice_line CASCADE");
+		s.executeUpdate("DROP TABLE IF EXISTS \"order\" CASCADE");
 		
 		// create tables
-		s.executeUpdate("create table client (id serial primary key, name varchar, address varchar, data varchar)");
-		s.executeUpdate("create table product (id serial primary key, description varchar, data varchar)");
-		s.executeUpdate("create table invoice (id serial primary key, product_id int, client_id int, data varchar)");
+		s.executeUpdate("CREATE TABLE client (id SERIAL PRIMARY KEY," +
+				"name VARCHAR," +
+				"address VARCHAR," +
+				"data VARCHAR" +
+				")");
+		s.executeUpdate("CREATE TABLE product (id SERIAL PRIMARY KEY," +
+				"description VARCHAR," +
+				"stock INT," +
+				"min INT," +
+				"max INT," +
+				"data VARCHAR" +
+				")");
+		s.executeUpdate("CREATE TABLE invoice (id SERIAL PRIMARY KEY," +
+				"client_id INT REFERENCES client(id)," +
+				"data VARCHAR" +
+				")");
+		s.executeUpdate("CREATE TABLE invoice_line (id SERIAL PRIMARY KEY," +
+				"invoice_id INT REFERENCES invoice(id)," +
+				"product_id INT REFERENCES product(id)" +
+				")");
+		s.executeUpdate("CREATE TABLE \"order\" (id SERIAL PRIMARY KEY," +
+				"product_id INT REFERENCES product(id)," +
+				"supplier VARCHAR," +
+				"items INT" +
+				")");
 		
 		s.close();
 	}
