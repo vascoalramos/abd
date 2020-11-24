@@ -15,8 +15,6 @@ public class Workload {
 	private static final String DATA = RandomStringUtils.randomAlphanumeric(1000, 1500);
 	private static final String DESCRIPTION = RandomStringUtils.randomAlphabetic(15, 100);
 	
-	// prepared statements
-	
 	public static void populate(Random rand, Connection c) throws SQLException {
 		Statement s = c.createStatement();
 		
