@@ -9,11 +9,16 @@ public class Workload {
 	public static void populate(Random rand, Connection c) throws Exception {
 		Statement s = c.createStatement();
 		
-		//---- DEMO WORKLOAD ----
-		// replace with your workload!
-		s.executeUpdate("create table demo (a int, b varchar, c int)");
-		s.executeUpdate("insert into demo values (1, 'one',0)");
-		//-----------------------
+		// drop tables, if they exist
+		s.executeUpdate("drop table if exists client cascade");
+		s.executeUpdate("drop table if exists product cascade");
+		s.executeUpdate("drop table if exists invoice cascade");
+		s.executeUpdate("drop table if exists mv_product_sales cascade");
+		
+		// create tables
+		s.executeUpdate("create table client (id serial primary key, name varchar, address varchar, data varchar)");
+		s.executeUpdate("create table product (id serial primary key, description varchar, data varchar)");
+		s.executeUpdate("create table invoice (id serial primary key, product_id int, client_id int, data varchar)");
 		
 		s.close();
 	}
