@@ -20,15 +20,27 @@ public class Workload {
 	private final Random rand;
 	private final Connection c;
 	
+	private final PreparedStatement increaseProductStockSt;
+	private final PreparedStatement decreaseProductStockSt;
+	
+	private final PreparedStatement insertOrderSt;
+	private final PreparedStatement deleteOrderSt;
+	
+	private final PreparedStatement insertInvoiceLineSt;
+	
 	public Workload(Random rand, Connection c) throws Exception {
 		this.rand = rand;
 		this.c = c;
 		
-		//---- DEMO WORKLOAD ----
-		// initialize connection, e.g. c.setAutoCommit(false);
-		// or create prepared statements...
-		//-----------------------
 		this.c.setAutoCommit(false);
+		
+		this.increaseProductStockSt = c.prepareStatement("UPDATE product SET stock = stock + ? WHERE id = ?");
+		this.decreaseProductStockSt = c.prepareStatement("UPDATE product SET stock = stock - ? WHERE id = ?");
+		
+		this.insertOrderSt = c.prepareStatement("INSERT INTO \"order\" (product_id, supplier, items) VALUES (?, ?, ?)");
+		this.deleteOrderSt = c.prepareStatement("DELETE FROM \"order\" WHERE id = ?");
+		
+		this.insertInvoiceLineSt = c.prepareStatement("INSERT INTO invoice_line (invoice_id, product_id) VALUES (?, ?)");
 	}
 	
 	public static void populate(Random rand, Connection c) throws Exception {
@@ -98,6 +110,7 @@ public class Workload {
 		// create materialized view (plus insert trigger and function) to top10 operation
 		s.executeUpdate("SELECT id AS product_id, 0 AS total_sales INTO mv_product_sales FROM product GROUP BY product_id");
 		
+		/*
 		s.executeUpdate("CREATE FUNCTION update_product_sales() RETURNS TRIGGER AS '" +
 				"	BEGIN" +
 				"		update mv_product_sales set total_sales = total_sales + 1 where product_id = new.product_id;" +
@@ -110,6 +123,7 @@ public class Workload {
 				"	AFTER INSERT ON invoice_line" +
 				"	FOR EACH ROW EXECUTE PROCEDURE update_product_sales();"
 		);
+		*/
 		
 		s.close();
 	}
@@ -166,10 +180,14 @@ public class Workload {
 					productId = generateId();
 					
 					// insert lines to the invoice
-					s.executeUpdate("INSERT INTO invoice_line (invoice_id, product_id) VALUES (" + invoiceId + ", " + productId + ")");
+					insertInvoiceLineSt.setInt(1, invoiceId);
+					insertInvoiceLineSt.setInt(2, productId);
+					insertInvoiceLineSt.executeUpdate();
 					
 					// update stock value
-					s.executeUpdate("UPDATE product SET stock = stock - 1 WHERE id=" + productId);
+					decreaseProductStockSt.setInt(1, 1);
+					decreaseProductStockSt.setInt(2, productId);
+					decreaseProductStockSt.executeUpdate();
 				}
 			}
 			
@@ -199,52 +217,38 @@ public class Workload {
 	private void order(Statement s) throws Exception {
 		ResultSet rs = s.executeQuery("SELECT id, stock, max FROM product WHERE stock < min");
 		
-		int productId, stock, max;
-		
 		List<int[]> entries = new ArrayList<>();
 		
 		while (rs.next()) {
-			productId = rs.getInt(1);
-			stock = rs.getInt(2);
-			max = rs.getInt(3);
-			
-			entries.add(new int[]{productId, stock, max});
+			entries.add(new int[]{rs.getInt(1), rs.getInt(2), rs.getInt(3)});
 		}
 		
 		for (int[] entry: entries) {
-			productId = entry[0];
-			stock = entry[1];
-			max = entry[2];
-			
-			s.executeUpdate("INSERT INTO \"order\" (product_id, supplier, items) VALUES (" + productId + ", '" + DATA + "', " + (max - stock) + ")");
+			insertOrderSt.setInt(1, entry[0]);
+			insertOrderSt.setString(2, DATA);
+			insertOrderSt.setInt(3, entry[2] - entry[1]);
+			insertOrderSt.executeUpdate();
 		}
 	}
 	
 	private void delivery(Statement s) throws Exception {
-		ResultSet rs = s.executeQuery("SELECT id, product_id, items FROM \"order\"");
-		
-		int orderId, productId, items;
+		ResultSet rs = s.executeQuery("SELECT items, product_id, id FROM \"order\"");
 		
 		List<int[]> entries = new ArrayList<>();
 		
 		while (rs.next()) {
-			orderId = rs.getInt(1);
-			productId = rs.getInt(2);
-			items = rs.getInt(3);
-			
-			entries.add(new int[]{orderId, productId, items});
+			entries.add(new int[]{rs.getInt(1), rs.getInt(2), rs.getInt(3)});
 		}
 		
 		for (int[] entry: entries) {
-			orderId = entry[0];
-			productId = entry[1];
-			items = entry[2];
+			increaseProductStockSt.setInt(1, entry[0]);
+			increaseProductStockSt.setInt(2, entry[1]);
+			increaseProductStockSt.executeUpdate();
 			
-			s.executeUpdate("UPDATE product SET stock = stock + " + items + " WHERE id=" + productId);
-			s.executeUpdate("DELETE FROM \"order\" WHERE id=" + orderId);
+			deleteOrderSt.setInt(1, entry[2]);
+			deleteOrderSt.executeUpdate();
 		}
 	}
-	
 	
 	private int generateId() {
 		int res = rand.nextInt(MAX) | rand.nextInt(MAX);
