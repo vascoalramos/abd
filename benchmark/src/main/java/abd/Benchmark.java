@@ -10,10 +10,12 @@ import java.util.Random;
 public class Benchmark extends Thread {
 	
 	private static final Options options = new Options();
-	private static final Random rand = new Random();
+	
 	private static boolean started, stopped;
 	private static int n, aborted;
 	private static long total;
+	
+	private static final Random rand = new Random();
 	
 	public synchronized static void startBench() {
 		started = true;
@@ -52,14 +54,12 @@ public class Benchmark extends Thread {
 		Benchmark[] r = new Benchmark[options.clients];
 		for (int i = 0; i < r.length; i++)
 			r[i] = new Benchmark();
-		for (int i = 0; i < r.length; i++)
-			r[i].start();
+		for (Benchmark benchmark : r) benchmark.start();
 		Thread.sleep(options.warmup * 1000); // aquecimento
 		startBench();
 		Thread.sleep(options.runtime * 1000);  // medidas!!!
 		stopBench();
-		for (int i = 0; i < r.length; i++)
-			r[i].join();
+		for (Benchmark benchmark : r) benchmark.join();
 	}
 	
 	public static void main(String[] args) throws Exception {
