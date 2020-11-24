@@ -52,21 +52,21 @@ public class Benchmark extends Thread {
 		Benchmark[] r = new Benchmark[options.clients];
 		for (int i = 0; i < r.length; i++)
 			r[i] = new Benchmark();
-		for (Benchmark benchmark : r) {
-			benchmark.start();
-		}
+		for (int i = 0; i < r.length; i++)
+			r[i].start();
 		Thread.sleep(options.warmup * 1000); // aquecimento
 		startBench();
 		Thread.sleep(options.runtime * 1000);  // medidas!!!
 		stopBench();
-		for (Benchmark benchmark : r) {
-			benchmark.join();
-		}
+		for (int i = 0; i < r.length; i++)
+			r[i].join();
 	}
 	
 	public static void main(String[] args) throws Exception {
 		
-		JCommander parser = JCommander.newBuilder().addObject(options).build();
+		JCommander parser = JCommander.newBuilder()
+				.addObject(options)
+				.build();
 		try {
 			parser.parse(args);
 			if (options.help) {
@@ -78,25 +78,28 @@ public class Benchmark extends Thread {
 			return;
 		}
 		
-		if (options.populate) populate();
-		if (options.execute) execute();
+		if (options.populate)
+			populate();
+		if (options.execute)
+			execute();
 	}
 	
 	public void run() {
 		try {
 			Connection c = DriverManager.getConnection(options.database, options.user, options.passwd);
+			Workload wl = new Workload(rand, c);
 			while (!isStopped()) {
 				long before = System.nanoTime();
 				boolean success = true;
 				try {
-					Workload.transaction(rand, c);
+					wl.transaction();
 				} catch (SQLException e) {
 					// check if it is an isolation-related exception
 					// make sure other exceptions are shown
 					if (e.getSQLState().startsWith("40")) {
 						try {
 							c.rollback();
-						} catch (Exception ignored) {
+						} catch (Exception e2) {
 						}
 						success = false;
 					} else
@@ -111,5 +114,4 @@ public class Benchmark extends Thread {
 			e.printStackTrace();
 		}
 	}
-	
 }
