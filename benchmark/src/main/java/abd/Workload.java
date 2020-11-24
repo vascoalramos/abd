@@ -70,7 +70,7 @@ public class Workload {
 				")");
 		
 		// insert clients
-		PreparedStatement insertClientSt = c.prepareStatement("insert into client (name, address, data) values (?, ?, ?)");
+		PreparedStatement insertClientSt = c.prepareStatement("INSERT INTO client (name, address, data) VALUES (?, ?, ?)");
 		for (int i = 0; i < MAX; i++) {
 			insertClientSt.setString(1, NAME);
 			insertClientSt.setString(2, ADDRESS);
@@ -79,7 +79,7 @@ public class Workload {
 		}
 		
 		// insert products
-		PreparedStatement insertProductSt = c.prepareStatement("insert into product (description, stock, min, max, data) values (?, ?, ?, ?, ?)");
+		PreparedStatement insertProductSt = c.prepareStatement("INSERT INTO product (description, stock, min, max, data) VALUES (?, ?, ?, ?, ?)");
 		for (int i = 0; i < MAX; i++) {
 			insertProductSt.setString(1, DESCRIPTION);
 			insertProductSt.setInt(2, rand.nextInt(5000 - 5) + 5);
@@ -103,7 +103,7 @@ public class Workload {
 				sell(s);
 				break;
 			case 1:
-				// account(s);
+				account(s);
 				break;
 			case 2:
 				// top10(s);
@@ -121,7 +121,7 @@ public class Workload {
 		int invoiceId;
 		int productId;
 		
-		String sql = "insert into invoice (client_id, data) values (" + clientId + ", '" + DATA + "')";
+		String sql = "INSERT INTO invoice (client_id, data) VALUES (" + clientId + ", '" + DATA + "')";
 		int affectedRows = s.executeUpdate(sql, Statement.RETURN_GENERATED_KEYS);
 		
 		if (affectedRows > 0) {
@@ -134,10 +134,10 @@ public class Workload {
 					productId = generateId();
 					
 					// insert lines to the invoice
-					s.executeUpdate("insert into invoice_line (invoice_id, product_id) values (" + invoiceId + ", " + productId + ")");
+					s.executeUpdate("INSERT INTO invoice_line (invoice_id, product_id) VALUES (" + invoiceId + ", " + productId + ")");
 					
 					// update stock value
-					s.executeUpdate("update product set stock = stock - 1 where id=" + productId);
+					s.executeUpdate("UPDATE product SET stock = stock - 1 WHERE id=" + productId);
 				}
 			}
 			
@@ -147,7 +147,11 @@ public class Workload {
 	private void account(Statement s) throws Exception {
 		int clientId = generateId();
 		
-		ResultSet rs = s.executeQuery("select description from invoice inner join product on product_id=product.id where client_id=" + clientId);
+		ResultSet rs = s.executeQuery("SELECT description " +
+				"FROM (SELECT * FROM invoice WHERE client_id=" + clientId + ") as invoice_client" +
+				"	INNER JOIN invoice_line on invoice_client.id=invoice_id" +
+				"	INNER JOIN product on product_id=product.id"
+		);
 		
 		while (rs.next()) {
 		}
