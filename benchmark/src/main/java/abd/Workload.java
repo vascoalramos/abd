@@ -3,6 +3,8 @@ package abd;
 import org.apache.commons.lang3.RandomStringUtils;
 
 import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 
 public class Workload {
@@ -15,33 +17,78 @@ public class Workload {
 	private static final String DATA = RandomStringUtils.randomAlphanumeric(1000, 1500);
 	private static final String DESCRIPTION = RandomStringUtils.randomAlphabetic(15, 100);
 	
-	public static void populate(Random rand, Connection c) throws SQLException {
+	private final Random rand;
+	private final Connection c;
+	
+	private final PreparedStatement increaseProductStockSt;
+	private final PreparedStatement decreaseProductStockSt;
+	
+	private final PreparedStatement insertOrderSt;
+	private final PreparedStatement deleteOrderSt;
+	
+	private final PreparedStatement insertInvoiceLineSt;
+	
+	public Workload(Random rand, Connection c) throws Exception {
+		this.rand = rand;
+		this.c = c;
+		
+		this.c.setAutoCommit(false);
+		
+		this.increaseProductStockSt = c.prepareStatement("UPDATE product SET stock = stock + ? WHERE id = ?");
+		this.decreaseProductStockSt = c.prepareStatement("UPDATE product SET stock = stock - ? WHERE id = ?");
+		
+		this.insertOrderSt = c.prepareStatement("INSERT INTO \"order\" (product_id, supplier, items) VALUES (?, ?, ?)");
+		this.deleteOrderSt = c.prepareStatement("DELETE FROM \"order\" WHERE id = ?");
+		
+		this.insertInvoiceLineSt = c.prepareStatement("INSERT INTO invoice_line (invoice_id, product_id) VALUES (?, ?)");
+	}
+	
+	public static void populate(Random rand, Connection c) throws Exception {
 		Statement s = c.createStatement();
 		
-		
 		// drop tables, if they exist
-		s.executeUpdate("drop table if exists client cascade");
-		s.executeUpdate("drop table if exists product cascade");
-		s.executeUpdate("drop table if exists invoice cascade");
-		s.executeUpdate("drop table if exists mv_product_sales cascade");
-		
-		// drop triggers, if they exist
-		s.executeUpdate("drop trigger if exists update_product_sales on abd.invoice");
-		
-		// drop functions, if they exist
-		s.executeUpdate("drop function if exists update_product_sales");
+		s.executeUpdate("DROP TABLE IF EXISTS client CASCADE");
+		s.executeUpdate("DROP TABLE IF EXISTS product CASCADE");
+		s.executeUpdate("DROP TABLE IF EXISTS invoice CASCADE");
+		s.executeUpdate("DROP TABLE IF EXISTS invoice_line CASCADE");
+		s.executeUpdate("DROP TABLE IF EXISTS \"order\" CASCADE");
+		s.executeUpdate("DROP TABLE IF EXISTS mv_product_sales CASCADE");
 		
 		// create tables
-		s.executeUpdate("create table client (id serial primary key, name varchar, address varchar, data varchar)");
-		s.executeUpdate("create table product (id serial primary key, description varchar, data varchar)");
-		s.executeUpdate("create table invoice (id serial primary key, product_id int, client_id int, data varchar)");
+		s.executeUpdate("CREATE TABLE client (id SERIAL PRIMARY KEY," +
+				"name VARCHAR," +
+				"address VARCHAR," +
+				"data VARCHAR" +
+				")");
+		s.executeUpdate("CREATE TABLE product (id SERIAL PRIMARY KEY," +
+				"description VARCHAR," +
+				"stock INT," +
+				"min INT," +
+				"max INT," +
+				"data VARCHAR" +
+				")");
+		s.executeUpdate("CREATE TABLE invoice (id SERIAL PRIMARY KEY," +
+				"client_id INT REFERENCES client(id)," +
+				"data VARCHAR" +
+				")");
+		s.executeUpdate("CREATE TABLE invoice_line (id SERIAL PRIMARY KEY," +
+				"invoice_id INT REFERENCES invoice(id)," +
+				"product_id INT REFERENCES product(id)" +
+				")");
+		s.executeUpdate("CREATE TABLE \"order\" (id SERIAL PRIMARY KEY," +
+				"product_id INT REFERENCES product(id)," +
+				"supplier VARCHAR," +
+				"items INT" +
+				")");
 		
-		// create indexes to account operation
-		s.executeUpdate("create index idx_invoice_client_id on invoice(client_id)");
-		s.executeUpdate("create index idx_invoice_product_id on invoice(product_id)");
+		// drop triggers, if they exist
+		s.executeUpdate("DROP TRIGGER IF EXISTS update_product_sales ON abd.invoice");
+		
+		// drop functions, if they exist
+		s.executeUpdate("DROP FUNCTION IF EXISTS update_product_sales");
 		
 		// insert clients
-		PreparedStatement insertClientSt = c.prepareStatement("insert into client (name, address, data) values (?, ?, ?)");
+		PreparedStatement insertClientSt = c.prepareStatement("INSERT INTO client (name, address, data) VALUES (?, ?, ?)");
 		for (int i = 0; i < MAX; i++) {
 			insertClientSt.setString(1, NAME);
 			insertClientSt.setString(2, ADDRESS);
@@ -50,17 +97,21 @@ public class Workload {
 		}
 		
 		// insert products
-		PreparedStatement insertProductSt = c.prepareStatement("insert into product (description, data) values (?, ?)");
+		PreparedStatement insertProductSt = c.prepareStatement("INSERT INTO product (description, stock, min, max, data) VALUES (?, ?, ?, ?, ?)");
 		for (int i = 0; i < MAX; i++) {
 			insertProductSt.setString(1, DESCRIPTION);
-			insertProductSt.setString(2, DATA);
+			insertProductSt.setInt(2, rand.nextInt(3000 - 2250) + 2250);
+			insertProductSt.setInt(3, rand.nextInt(2250 - 1850) + 1850);
+			insertProductSt.setInt(4, rand.nextInt(3250 - 3000) + 3000);
+			insertProductSt.setString(5, DATA);
 			insertProductSt.executeUpdate();
 		}
 		
+		/*
 		// create materialized view (plus insert trigger and function) to top10 operation
-		s.executeUpdate("select id as product_id, 0 as total_sales into mv_product_sales from product group by product_id");
+		s.executeUpdate("SELECT id AS product_id, 0 AS total_sales INTO mv_product_sales FROM product GROUP BY product_id");
 		
-		s.executeUpdate("create function update_product_sales() returns trigger as '" +
+		s.executeUpdate("CREATE FUNCTION update_product_sales() RETURNS TRIGGER AS '" +
 				"	BEGIN" +
 				"		update mv_product_sales set total_sales = total_sales + 1 where product_id = new.product_id;" +
 				"		return new;" +
@@ -68,65 +119,143 @@ public class Workload {
 				"' language 'plpgsql'"
 		);
 		
-		s.executeUpdate("create trigger update_product_sales" +
-				"	after insert on invoice" +
-				"	for each row execute procedure update_product_sales();"
+		s.executeUpdate("CREATE TRIGGER update_product_sales" +
+				"	AFTER INSERT ON invoice_line" +
+				"	FOR EACH ROW EXECUTE PROCEDURE update_product_sales();"
 		);
+		*/
 		
 		s.close();
 	}
 	
-	public static void transaction(Random rand, Connection c) throws Exception {
+	public void transaction() throws Exception {
 		Statement s = c.createStatement();
 		
 		// execute random operation
-		int opt = rand.nextInt(3);
+		int opt = rand.nextInt(5);
 		
 		switch (opt) {
 			case 0:
-				sell(rand, c);
+				sell(s);
 				break;
 			case 1:
-				account(rand, s);
+				account(s);
 				break;
 			case 2:
 				top10(s);
+				break;
+			case 3:
+				if (rand.nextInt(4) == 1) {
+					order(s);
+				}
+				break;
+			case 4:
+				if (rand.nextInt(4) == 1) {
+					delivery(s);
+				}
 				break;
 			default:
 				System.out.println("Oops.... :)");
 		}
 		
+		c.commit();
 		s.close();
 	}
 	
-	private static void sell(Random rand, Connection c) throws Exception {
-		int clientId = generateId(rand);
-		int productId = generateId(rand);
+	private void sell(Statement s) throws Exception {
+		int clientId = generateId();
+		int invoiceId;
+		int productId;
 		
-		PreparedStatement sellPrepSt = c.prepareStatement("insert into invoice (product_id, client_id, data) values (?, ?, ?)");
-		sellPrepSt.setInt(1, productId);
-		sellPrepSt.setInt(2, clientId);
-		sellPrepSt.setString(3, DATA);
-		sellPrepSt.executeUpdate();
+		String sql = "INSERT INTO invoice (client_id, data) VALUES (" + clientId + ", '" + DATA + "')";
+		int affectedRows = s.executeUpdate(sql, Statement.RETURN_GENERATED_KEYS);
+		
+		if (affectedRows > 0) {
+			ResultSet keys = s.getGeneratedKeys();
+			
+			if (keys.next()) {
+				invoiceId = keys.getInt(1);
+				
+				for (int i = 0; i < (rand.nextInt(5) + 1); i++) {
+					productId = generateId();
+					
+					// insert lines to the invoice
+					insertInvoiceLineSt.setInt(1, invoiceId);
+					insertInvoiceLineSt.setInt(2, productId);
+					insertInvoiceLineSt.executeUpdate();
+					
+					// update stock value
+					decreaseProductStockSt.setInt(1, 1);
+					decreaseProductStockSt.setInt(2, productId);
+					decreaseProductStockSt.executeUpdate();
+				}
+			}
+			
+		}
 	}
 	
-	private static void account(Random rand, Statement s) throws Exception {
-		int clientId = generateId(rand);
+	private void account(Statement s) throws Exception {
+		int clientId = generateId();
 		
-		ResultSet rs = s.executeQuery("select description from invoice inner join product on product_id=product.id where client_id=" + clientId);
+		ResultSet rs = s.executeQuery("SELECT description " +
+				"FROM (SELECT * FROM invoice WHERE client_id=" + clientId + ") AS invoice_client" +
+				"	INNER JOIN invoice_line ON invoice_client.id=invoice_id" +
+				"	INNER JOIN product ON product_id=product.id"
+		);
 		
 		while (rs.next()) {
 		}
 	}
 	
-	private static void top10(Statement s) throws Exception {
-		ResultSet rs = s.executeQuery("select product_id from mv_product_sales order by total_sales desc limit 10;");
+	private void top10(Statement s) throws Exception {
+		ResultSet rs = s.executeQuery("SELECT product_id " +
+				"FROM invoice_line " +
+				"GROUP BY product_id " +
+				"ORDER BY sum(product_id) DESC LIMIT 10;");
 		
 		while (rs.next()) {
 		}
 	}
 	
-	private static int generateId(Random rand) {
-		return rand.nextInt(MAX) | rand.nextInt(MAX);
+	private void order(Statement s) throws Exception {
+		ResultSet rs = s.executeQuery("SELECT id, stock, max FROM product WHERE stock < min");
+		
+		List<int[]> entries = new ArrayList<>();
+		
+		while (rs.next()) {
+			entries.add(new int[]{rs.getInt(1), rs.getInt(2), rs.getInt(3)});
+		}
+		
+		for (int[] entry: entries) {
+			insertOrderSt.setInt(1, entry[0]);
+			insertOrderSt.setString(2, DATA);
+			insertOrderSt.setInt(3, entry[2] - entry[1]);
+			insertOrderSt.executeUpdate();
+		}
 	}
+	
+	private void delivery(Statement s) throws Exception {
+		ResultSet rs = s.executeQuery("SELECT items, product_id, id FROM \"order\"");
+		
+		List<int[]> entries = new ArrayList<>();
+		
+		while (rs.next()) {
+			entries.add(new int[]{rs.getInt(1), rs.getInt(2), rs.getInt(3)});
+		}
+		
+		for (int[] entry: entries) {
+			increaseProductStockSt.setInt(1, entry[0]);
+			increaseProductStockSt.setInt(2, entry[1]);
+			increaseProductStockSt.executeUpdate();
+			
+			deleteOrderSt.setInt(1, entry[2]);
+			deleteOrderSt.executeUpdate();
+		}
+	}
+	
+	private int generateId() {
+		int res = rand.nextInt(MAX) | rand.nextInt(MAX);
+		return res > 0 ? res : 1;
+	}
+	
 }
