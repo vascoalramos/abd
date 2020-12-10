@@ -1,0 +1,1 @@
+pg_dump -h server -Fc tpcc > tpcc.dump
